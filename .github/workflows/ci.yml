@@ -1,0 +1,70 @@
+name: build-ci
+
+on:
+  push:
+    branches: [ "*" ]
+    tags: [ "*" ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      SDL_VER: "2.0.16"
+      FFMPEG_VER: "4.4"
+    steps:
+      - name: Checkout
+        run: |
+          git clone -b release-${SDL_VER} https://github.com/libsdl-org/SDL.git
+          git clone -b n${FFMPEG_VER} https://git.ffmpeg.org/ffmpeg.git
+      - name: Set up cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/Library/Caches/ccache
+          key: ${{ runner.os }}-macos-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-macos-
+      - name: Install dependencies
+        run: |
+          brew install p7zip ninja ccache nasm
+      - name: Build SDL
+        run: |
+          export PATH="/usr/local/opt/ccache/libexec:$PATH"
+          export CCACHE_CPP2=yes
+          export CCACHE_SLOPPINESS=time_macros
+          export CC="ccache clang"
+          export CXX="ccache clang++"
+
+          cd SDL
+          mkdir -p build/${SDL_VER}
+          cd build
+          cmake ../ -DBUILD_SHARED_LIBS=1
+          make -j4
+          make install DESTDIR=$(pwd)/${SDL_VER}
+          ls
+      - name: Build FFMPEG
+        run: |
+          export PATH="/usr/local/opt/ccache/libexec:$PATH"
+          export CCACHE_CPP2=yes
+          export CCACHE_SLOPPINESS=time_macros
+          export CC="ccache clang"
+          export CXX="ccache clang++"
+
+          cd ffmpeg
+          mkdir -p build/${FFMPEG_VER}
+          cd build
+          ../configure --cc="${CC}" --cxx="${CXX}" --enable-shared --disable-static --disable-doc \
+              --disable-lzma
+          make -j4
+          make install DESTDIR=$(pwd)/ffmpeg-${FFMPEG_VER}
+          ls
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos
+          path: |
+            SDL/build/sdl-${{ env.SDL_VER }}
+            ffmpeg/build/ffmpeg-${{ env.FFMPEG_VER }}
