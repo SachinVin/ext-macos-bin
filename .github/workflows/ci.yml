@@ -4,6 +4,8 @@ on:
   push:
     branches: [ "*" ]
     tags: [ "*" ]
+    paths-ignore:
+      - "*.7z"
   pull_request:
     branches: [ main ]
 
@@ -11,9 +13,13 @@ jobs:
   macos:
     runs-on: macos-latest
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.13"
       SDL_VER: "2.0.16"
       FFMPEG_VER: "4.4"
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      CCACHE_CPP2: "yes"
+      CCACHE_SLOPPINESS: "time_macros"
+      CC: "ccache clang"
+      CXX: "ccache clang++"
     steps:
       - name: Checkout
         run: |
@@ -29,42 +35,42 @@ jobs:
             ${{ runner.os }}-macos-
       - name: Install dependencies
         run: |
-          brew install p7zip ninja ccache nasm
+          brew install p7zip ccache nasm
       - name: Build SDL
         run: |
           export PATH="/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_CPP2=yes
-          export CCACHE_SLOPPINESS=time_macros
-          export CC="ccache clang"
-          export CXX="ccache clang++"
 
-          cd SDL
-          mkdir -p build/${SDL_VER}
-          cd build
+          mkdir -p SDL/build/sdl-${SDL_VER}
+          cd SDL/build
+
           cmake ../ -DBUILD_SHARED_LIBS=1
           make -j4
-          make install DESTDIR=$(pwd)/${SDL_VER}
-          ls
+          make install DESTDIR=$(pwd)/sdl-${SDL_VER}
+          
+          7z a "sdl-${SDL_VER}.7z" sdl-${SDL_VER}/
       - name: Build FFMPEG
         run: |
           export PATH="/usr/local/opt/ccache/libexec:$PATH"
-          export CCACHE_CPP2=yes
-          export CCACHE_SLOPPINESS=time_macros
-          export CC="ccache clang"
-          export CXX="ccache clang++"
 
-          cd ffmpeg
-          mkdir -p build/${FFMPEG_VER}
-          cd build
+          mkdir -p ffmpeg/build/ffmpeg-${FFMPEG_VER}
+          cd ffmpeg/build
+
+          # The included lzma is built for 10.15 can generaates linker warnings
           ../configure --cc="${CC}" --cxx="${CXX}" --enable-shared --disable-static --disable-doc \
               --disable-lzma
           make -j4
           make install DESTDIR=$(pwd)/ffmpeg-${FFMPEG_VER}
-          ls
+          
+          7z a "ffmpeg-${FFMPEG_VER}.7z" ffmpeg-${FFMPEG_VER}/
+      - name: Pack
+        run: |
+          # move the compiled archive into the artifacts directory to be uploaded
+          mkdir artifacts
+          mv "SDL/build/sdl-${SDL_VER}.7z" artifacts/
+          mv "ffmpeg/build/ffmpeg-${FFMPEG_VER}.7z" artifacts/
       - name: Upload
         uses: actions/upload-artifact@v2
         with:
           name: macos
           path: |
-            SDL/build/sdl-${{ env.SDL_VER }}
-            ffmpeg/build/ffmpeg-${{ env.FFMPEG_VER }}
+            artifacts/
