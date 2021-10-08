@@ -23,8 +23,8 @@ jobs:
     steps:
       - name: Checkout
         run: |
-          git clone -b release-${SDL_VER} https://github.com/libsdl-org/SDL.git
-          git clone -b n${FFMPEG_VER} https://git.ffmpeg.org/ffmpeg.git
+          git clone -b release-${SDL_VER} https://github.com/libsdl-org/SDL.git --depth 1
+          git clone -b n${FFMPEG_VER} https://git.ffmpeg.org/ffmpeg.git --depth 1
       - name: Set up cache
         uses: actions/cache@v2
         with:
