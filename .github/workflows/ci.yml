@@ -20,6 +20,7 @@ jobs:
       CCACHE_SLOPPINESS: "time_macros"
       CC: "ccache clang"
       CXX: "ccache clang++"
+      OBJC: "clang"
     steps:
       - name: Checkout
         run: |
