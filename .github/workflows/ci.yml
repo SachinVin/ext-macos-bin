@@ -5,7 +5,7 @@ on:
     branches: [ "*" ]
     tags: [ "*" ]
     paths-ignore:
-      - "*.7z"
+      - "**.7z"
   pull_request:
     branches: [ main ]
 
