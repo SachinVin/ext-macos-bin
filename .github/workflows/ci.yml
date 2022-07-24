@@ -13,8 +13,8 @@ jobs:
   macos:
     runs-on: macos-latest
     env:
-      SDL_VER: "2.0.18"
-      FFMPEG_VER: "5.0"
+      SDL_VER: "2.0.22"
+      FFMPEG_VER: "5.1"
       MACOSX_DEPLOYMENT_TARGET: "10.13"
       CCACHE_CPP2: "yes"
       CCACHE_SLOPPINESS: "time_macros"
