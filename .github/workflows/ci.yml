@@ -9,23 +9,25 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  SDL_VER: "2.0.22"
+  FFMPEG_VER: "5.1"
+  MVK_VER: "1.2.1"
+
 jobs:
-  macos:
-    runs-on: macos-latest
-    env:
-      SDL_VER: "2.0.22"
-      FFMPEG_VER: "5.1"
+  SDL:
+    env:      
       MACOSX_DEPLOYMENT_TARGET: "10.13"
       CCACHE_CPP2: "yes"
       CCACHE_SLOPPINESS: "time_macros"
       CC: "ccache clang"
       CXX: "ccache clang++"
       OBJC: "clang"
+    runs-on: macos-latest
     steps:
       - name: Checkout
         run: |
           git clone -b release-${SDL_VER} https://github.com/libsdl-org/SDL.git --depth 1
-          git clone -b n${FFMPEG_VER} https://git.ffmpeg.org/ffmpeg.git --depth 1
       - name: Set up cache
         uses: actions/cache@v2
         with:
@@ -49,6 +51,42 @@ jobs:
           make install DESTDIR=$(pwd)/sdl-${SDL_VER}
           
           7z a "sdl-${SDL_VER}.7z" sdl-${SDL_VER}/
+      - name: Pack
+        run: |
+          # move the compiled archive into the artifacts directory to be uploaded
+          mkdir -p artifacts/sdl2
+          mv "SDL/build/sdl-${SDL_VER}.7z" artifacts/sdl2
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos
+          path: |
+            artifacts/
+
+  FFmpeg:
+    env:      
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      CCACHE_CPP2: "yes"
+      CCACHE_SLOPPINESS: "time_macros"
+      CC: "ccache clang"
+      CXX: "ccache clang++"
+      OBJC: "clang"
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        run: |
+          git clone -b n${FFMPEG_VER} https://git.ffmpeg.org/ffmpeg.git --depth 1
+      - name: Set up cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/Library/Caches/ccache
+          key: ${{ runner.os }}-macos-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-macos-
+      - name: Install dependencies
+        run: |
+          brew install p7zip ccache nasm
       - name: Build FFMPEG
         run: |
           export PATH="/usr/local/opt/ccache/libexec:$PATH"
@@ -66,12 +104,84 @@ jobs:
       - name: Pack
         run: |
           # move the compiled archive into the artifacts directory to be uploaded
-          mkdir artifacts
-          mv "SDL/build/sdl-${SDL_VER}.7z" artifacts/
-          mv "ffmpeg/build/ffmpeg-${FFMPEG_VER}.7z" artifacts/
+          mkdir -p artifacts/ffmpeg
+          mv "ffmpeg/build/ffmpeg-${FFMPEG_VER}.7z" artifacts/ffmpeg
       - name: Upload
         uses: actions/upload-artifact@v2
         with:
           name: macos
           path: |
             artifacts/
+
+  MoltenVK:
+    env:      
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      CCACHE_CPP2: "yes"
+      CCACHE_SLOPPINESS: "time_macros"
+      CC: "clang"
+      CXX: "clang++"
+      OBJC: "clang"
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        run: |
+          git clone -b v${MVK_VER} https://github.com/KhronosGroup/MoltenVK.git --depth 1
+      - name: Set up cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/Library/Caches/ccache
+            External/build
+            !External/build/Intermediates
+          key: ${{ runner.os }}-macos-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-macos-
+      - name: Install dependencies
+        run: |
+          brew install p7zip ccache
+          cd MoltenVK
+          ./fetchDependencies -v --macos
+      - name: Build MoltenVK
+        run: |
+          export PATH="/usr/local/opt/ccache/libexec:$PATH"
+          cd MoltenVK
+
+          make macos -j4
+          
+          # Workaround unsupported `make install` to custom prefix
+          mkdir -p moltenvk-${MVK_VER}/Library/Frameworks/
+          cp -a Package/Latest/MoltenVK/MoltenVK.xcframework moltenvk-${MVK_VER}/Library/Frameworks/
+          
+          7z a "moltenvk-${MVK_VER}.7z" moltenvk-${MVK_VER}/
+      - name: Pack
+        run: |
+          # move the compiled archive into the artifacts directory to be uploaded
+          mkdir -p artifacts/moltenvk
+          mv "MoltenVK/moltenvk-${MVK_VER}.7z" artifacts/moltenvk
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos
+          path: |
+            artifacts/
+  PR:
+    # if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    needs: [SDL, FFmpeg, MoltenVK]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          path: ~/
+      - name: Copy Artifacts
+        run: cp -r ~/macos/* ./
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
+        with:
+          delete-branch: true
+          title: '[Auto] The bump by Github Actions'
+          body: |
+            Bumps
+            - SDL2 ${{ env.SDL_VER }}
+            - FFmpeg ${{ env.FFMPEG_VER }}
+            - MoltenVK ${{ env.MVK_VER }}
