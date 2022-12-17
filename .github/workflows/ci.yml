@@ -182,6 +182,6 @@ jobs:
           title: '[Auto] The bump by Github Actions'
           body: |
             Bumps
-            - SDL2 $SDL_VER
-            - FFmpeg $FFMPEG_VER
-            - MoltenVK $env.MVK_VER
+            - SDL2 ${{ env.SDL_VER }}
+            - FFmpeg ${{ env.FFMPEG_VER }}
+            - MoltenVK ${{ env.MVK_VER }}
