@@ -166,6 +166,6 @@ jobs:
         run: |
           ls 
           ls ~
-          cp -r macos/ ./
+          cp -r macos/* ./
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
