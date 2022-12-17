@@ -50,8 +50,14 @@ jobs:
       - name: Pack
         run: |
           # move the compiled archive into the artifacts directory to be uploaded
-          mkdir artifacts
+          mkdir -p artifacts/sdl2
           mv "SDL/build/sdl-${SDL_VER}.7z" artifacts/
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos
+          path: |
+            artifacts/
 
   FFmpeg:
     env:
@@ -95,8 +101,8 @@ jobs:
       - name: Pack
         run: |
           # move the compiled archive into the artifacts directory to be uploaded
-          mkdir artifacts
-          mv "ffmpeg/build/ffmpeg-${FFMPEG_VER}.7z" artifacts/
+          mkdir -p artifacts/ffmpeg
+          mv "ffmpeg/build/ffmpeg-${FFMPEG_VER}.7z" artifacts/ffmpeg
       - name: Upload
         uses: actions/upload-artifact@v2
         with:
@@ -148,8 +154,8 @@ jobs:
       - name: Pack
         run: |
           # move the compiled archive into the artifacts directory to be uploaded
-          mkdir artifacts
-          mv "MoltenVK/moltenvk-${MVK_VER}.7z" artifacts/
+          mkdir -p artifacts/moltenvk
+          mv "MoltenVK/moltenvk-${MVK_VER}.7z" artifacts/moltenvk
       - name: Upload
         uses: actions/upload-artifact@v2
         with:
@@ -163,11 +169,11 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
-          path: ${{ github.workspace }}
+          path: ~/
       - name: ls
         run: |
           ls 
           ls ~
-          cp -r macos/* ./
+          cp -r ~/macos/* ./
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
