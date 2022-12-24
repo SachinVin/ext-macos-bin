@@ -10,7 +10,7 @@ on:
     branches: [ main ]
 
 env:
-  SDL_VER: "2.0.22"
+  SDL_VER: "2.26.1"
   FFMPEG_VER: "5.1"
   MVK_VER: "1.2.1"
 
