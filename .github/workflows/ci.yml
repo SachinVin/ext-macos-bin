@@ -180,6 +180,11 @@ jobs:
         with:
           delete-branch: true
           title: '[Auto] The bump by Github Actions'
+          commit-message: |
+            [Auto] Bumps
+            - SDL2 ${{ env.SDL_VER }}
+            - FFmpeg ${{ env.FFMPEG_VER }}
+            - MoltenVK ${{ env.MVK_VER }}
           body: |
             Bumps
             - SDL2 ${{ env.SDL_VER }}
