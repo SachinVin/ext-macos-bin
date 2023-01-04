@@ -46,7 +46,7 @@ jobs:
           mkdir -p SDL/build/sdl-${SDL_VER}
           cd SDL/build
 
-          cmake ../ -DBUILD_SHARED_LIBS=1
+          cmake ../ -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DBUILD_SHARED_LIBS=1
           make -j4
           make install DESTDIR=$(pwd)/sdl-${SDL_VER}
           
@@ -91,15 +91,54 @@ jobs:
         run: |
           export PATH="/usr/local/opt/ccache/libexec:$PATH"
 
-          mkdir -p ffmpeg/build/ffmpeg-${FFMPEG_VER}
+          mkdir -p ffmpeg/build
           cd ffmpeg/build
 
-          # The included lzma is built for 10.15 can generaates linker warnings
-          ../configure --cc="${CC}" --cxx="${CXX}" --enable-shared --disable-static --disable-doc \
+          x86path=$(pwd)/x86_64
+          armpath=$(pwd)/arm64
+
+          # Build for x86_64
+          mkdir -p $x86path/install
+          cd $x86path
+          # The included lzma is built for 10.15 can generates linker warnings
+          ../../configure --enable-cross-compile --arch=x86_64 \
+              --cc="${CC} -arch x86_64" --cxx="${CXX} -arch x86_64" --enable-shared --disable-static --disable-doc \
               --disable-lzma
           make -j4
-          make install DESTDIR=$(pwd)/ffmpeg-${FFMPEG_VER}
-          
+          make install DESTDIR=$x86path/install
+
+          # Build for arm64
+          mkdir -p $armpath/install
+          cd $armpath
+          # The included lzma is built for 10.15 can generates linker warnings
+          ../../configure --enable-cross-compile --arch=arm64 \
+              --cc="${CC} -arch arm64" --cxx="${CXX} -arch arm64" --enable-shared --disable-static --disable-doc \
+              --disable-lzma
+          make -j4
+          make install DESTDIR=$armpath/install
+      - name: Create universal build
+        run: |
+          cd ffmpeg/build
+
+          x86path=$(pwd)/x86_64
+          armpath=$(pwd)/arm64
+          universalpath=$(pwd)/ffmpeg-${FFMPEG_VER}
+
+          mkdir -p $universalpath
+          for f in $(find $x86path/install); do
+            subpath=${f#$x86path/install}
+            dest=$universalpath$subpath
+            if [ -d "$f" ]; then
+              mkdir -p "$dest"
+            elif [ -L "$f" ]; then
+              ln -s $(readlink "$f") "$dest"
+            elif [[ ":$f:" == *"/bin/"* ]] || [[ $f == *.a ]] || [[ $f == *.dylib ]]; then
+              lipo -create -output "$dest" "$x86path/install$subpath" "$armpath/install$subpath"
+            else
+              cp "$f" "$dest"
+            fi
+          done
+
           7z a "ffmpeg-${FFMPEG_VER}.7z" ffmpeg-${FFMPEG_VER}/
       - name: Pack
         run: |
