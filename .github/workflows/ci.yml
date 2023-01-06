@@ -12,6 +12,7 @@ on:
 env:
   SDL_VER: "2.26.1"
   FFMPEG_VER: "5.1"
+  QT_VER: "5.15.8"
   MVK_VER: "1.2.1"
 
 jobs:
@@ -152,6 +153,65 @@ jobs:
           path: |
             artifacts/
 
+  Qt:
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.13"
+      CCACHE_CPP2: "yes"
+      CCACHE_SLOPPINESS: "time_macros"
+      CC: "ccache clang"
+      CXX: "ccache clang++"
+      OBJC: "clang"
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        run: |
+          wget https://download.qt.io/official_releases/qt/${QT_VER%.*}/${QT_VER}/single/qt-everywhere-opensource-src-${QT_VER}.tar.xz
+          tar xf qt-everywhere-opensource-src-${QT_VER}.tar.xz
+          mv qt-everywhere-src-${QT_VER} qt
+      - name: Set up cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/Library/Caches/ccache
+          key: ${{ runner.os }}-macos-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-macos-
+      - name: Install dependencies
+        run: |
+          brew install p7zip ccache
+      - name: Build Qt
+        run: |
+          export PATH="/usr/local/opt/ccache/libexec:$PATH"
+
+          mkdir -p qt/build/qt-${QT_VER}
+          cd qt/build
+
+          ../configure -prefix $(pwd)/qt-${QT_VER} -device-option QMAKE_APPLE_DEVICE_ARCHS="x86_64 arm64" \
+              -debug-and-release -opensource -opengl desktop -mp -ltcg \
+              -nomake examples -nomake tests \
+              -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcharts -skip qtconnectivity -skip qtdatavis3d \
+              -skip qtdoc -skip qtgamepad -skip qtgraphicaleffects -skip qtlocation -skip qtlottie -skip qtmacextras \
+              -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d -skip qtquickcontrols -skip qtquicktimeline \
+              -skip qtremoteobjects -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport \
+              -skip qtspeech -skip qtsvg -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebsockets -skip qtwebview \
+              -skip qtx11extras -skip qtxmlpatterns -skip qtvirtualkeyboard -skip qtquickcontrols2 -skip qtdeclarative \
+              -skip qtnetworkauth -skip qtwinextras -skip qtimageformats
+          make -j4
+          make install
+
+          7z a "qt-${QT_VER}.7z" qt-${QT_VER}/
+      - name: Pack
+        run: |
+          # move the compiled archive into the artifacts directory to be uploaded
+          mkdir -p artifacts/qt
+          mv "qt/build/qt-${QT_VER}.7z" artifacts/qt
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos
+          path: |
+            artifacts/
+
   MoltenVK:
     env:      
       MACOSX_DEPLOYMENT_TARGET: "10.13"
@@ -206,7 +266,7 @@ jobs:
   PR:
     if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    needs: [SDL, FFmpeg, MoltenVK]
+    needs: [SDL, FFmpeg, Qt, MoltenVK]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
@@ -223,9 +283,11 @@ jobs:
             [Auto] Bumps
             - SDL2 ${{ env.SDL_VER }}
             - FFmpeg ${{ env.FFMPEG_VER }}
+            - Qt ${{ env.QT_VER }}
             - MoltenVK ${{ env.MVK_VER }}
           body: |
             Bumps
             - SDL2 ${{ env.SDL_VER }}
             - FFmpeg ${{ env.FFMPEG_VER }}
+            - Qt ${{ env.QT_VER }}
             - MoltenVK ${{ env.MVK_VER }}
