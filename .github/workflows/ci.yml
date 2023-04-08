@@ -11,7 +11,7 @@ on:
 
 env:
   SDL_VER: "2.26.1"
-  FFMPEG_VER: "5.1"
+  FFMPEG_VER: "6.0"
   QT_VER: "5.15.8"
   MVK_VER: "1.2.1"
 
@@ -124,6 +124,22 @@ jobs:
           x86path=$(pwd)/x86_64
           armpath=$(pwd)/arm64
           universalpath=$(pwd)/ffmpeg-${FFMPEG_VER}
+
+          # Fix dylibs to be path-independent.
+          for dylib in $(find $(pwd) -name '*.dylib'); do
+            change_id=1
+            for path in $(otool -L $dylib | grep \t | cut -d' ' -f1 | xargs); do
+              if [[ $path = /usr/local/lib* ]]; then
+                fixed_path="@rpath/"`basename $path`
+                if [ $change_id -eq 1 ]; then
+                  change_id=0
+                  install_name_tool -id $fixed_path $dylib
+                else
+                  install_name_tool -change $path $fixed_path $dylib
+                fi
+              fi
+            done
+          done
 
           mkdir -p $universalpath
           for f in $(find $x86path/install); do
