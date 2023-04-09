@@ -104,7 +104,7 @@ jobs:
           # The included lzma is built for 10.15 can generates linker warnings
           ../../configure --enable-cross-compile --arch=x86_64 \
               --cc="${CC} -arch x86_64" --cxx="${CXX} -arch x86_64" --enable-shared --disable-static --disable-doc \
-              --disable-lzma
+              --disable-lzma --disable-xlib
           make -j4
           make install DESTDIR=$x86path/install
 
